@@ -1,0 +1,10 @@
+[package]
+name = "test1"
+version = "0.1.0"
+authors = ["Timo <dev@timot.se>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]

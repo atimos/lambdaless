@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    'system',
+    'test1',
+    'test2',
+]
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
