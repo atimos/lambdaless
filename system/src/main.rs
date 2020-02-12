@@ -14,12 +14,17 @@ struct CallRoute {
 }
 
 impl wasmtime::Callable for CallRoute {
-    fn call(&self, params: &[Val], results: &mut [Val]) -> Result<(), wasmtime::Trap> {
-        let servers = self.servers.read().unwrap();
-        let server = servers.iter().find(|server| server.modules.contains_key(&self.name)).unwrap();
-        let module = server.modules.get(&self.name).unwrap();
+    fn call(&self, params: &[Val], results: &mut [Val]) -> Result<(), Trap> {
+        let result = self
+            .servers
+            .read()
+            .map_err(|_| Trap::new("Could not read rwlock"))?
+            .iter()
+            .find_map(|server| server.modules.get(&self.name))
+            .ok_or_else(|| Trap::new("No server found with module loaded"))
+            .and_then(|module| module.run(&self.func, params).map_err(|err| Trap::new(err)))?;
 
-        for (idx, result) in module.run(&self.func, params).into_iter().enumerate() {
+        for (idx, result) in result.into_iter().enumerate() {
             results[idx] = result.clone();
         }
 
@@ -32,7 +37,7 @@ struct Server {
 }
 
 impl Server {
-    fn run(&self, name: &str, func: &str, args: &[Val]) -> Box<[Val]> {
+    fn run(&self, name: &str, func: &str, args: &[Val]) -> Result<Box<[Val]>, String> {
         self.modules.get(name).unwrap().run(func, args)
     }
 }
@@ -43,12 +48,12 @@ struct Module {
 }
 
 impl Module {
-    fn run(&self, func: &str, args: &[Val]) -> Box<[Val]> {
+    fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, String> {
         let index = self.exports.get(func).unwrap();
         let function = self.instance.exports()[*index].func().unwrap();
 
         let results = function.borrow().call(args).map_err(|trap| trap.to_string());
-        results.unwrap()
+        results
     }
 }
 
