@@ -49,11 +49,14 @@ struct Module {
 
 impl Module {
     fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, String> {
-        let index = self.exports.get(func).unwrap();
-        let function = self.instance.exports()[*index].func().unwrap();
-
-        let results = function.borrow().call(args).map_err(|trap| trap.to_string());
-        results
+        self.instance
+            .exports()
+            .get(*self.exports.get(func).ok_or_else(|| String::from("index not found"))?)
+            .ok_or_else(|| String::from("entry not found"))
+            .and_then(|func| func.func().ok_or_else(|| String::from("Item is not a function")))?
+            .borrow()
+            .call(args)
+            .map_err(|trap| trap.to_string())
     }
 }
 
