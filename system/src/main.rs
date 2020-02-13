@@ -74,7 +74,7 @@ fn main() {
                 "./target/wasm32-unknown-unknown/debug/test2.wasm",
             ),
         ],
-        servers.clone(),
+        &servers,
     );
 
     let server2 = create_server(
@@ -82,7 +82,7 @@ fn main() {
             "https://repository.timot.se/test2",
             "./target/wasm32-unknown-unknown/debug/test2.wasm",
         )],
-        servers.clone(),
+        &servers,
     );
 
     servers.write().unwrap().append(&mut vec![server1, server2]);
@@ -94,7 +94,7 @@ fn main() {
         .run("https://repository.timot.se/test2", "return_arg", &[222.into()]).unwrap());
 }
 
-fn create_server(binaries: &[(&str, &str)], servers: Servers) -> Server {
+fn create_server(binaries: &[(&str, &str)], servers: &Servers) -> Server {
     Server {
         modules: binaries
             .into_iter()
@@ -107,7 +107,7 @@ fn create_server(binaries: &[(&str, &str)], servers: Servers) -> Server {
                     instance: Instance::new(
                         &store,
                         &module,
-                        &map_imports(module.imports(), servers.clone()),
+                        &map_imports(module.imports(), servers),
                     )
                     .unwrap(),
                     exports: map_exports(module.exports()).collect(),
@@ -117,7 +117,7 @@ fn create_server(binaries: &[(&str, &str)], servers: Servers) -> Server {
     }
 }
 
-fn map_imports(imports: &[ImportType], servers: Servers) -> Vec<Extern> {
+fn map_imports(imports: &[ImportType], servers: &Servers) -> Vec<Extern> {
     imports
         .iter()
         .filter_map(|import| {
