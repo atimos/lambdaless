@@ -5,6 +5,8 @@ use std::{
 };
 use wasmtime::{Module as WasmModule, *};
 
+type Server = HashMap<String, Module>;
+
 #[derive(Clone, Default)]
 struct Servers {
     list: Arc<RwLock<Vec<Server>>>,
@@ -20,7 +22,7 @@ impl Servers {
             .read()
             .map_err(|_| "Could not read rwlock")?
             .iter()
-            .find_map(|server| server.modules.get(module))
+            .find_map(|server| server.get(module))
             .ok_or("No server found with module loaded")
             .and_then(|module| module.run(function, params).map_err(|_| "Could not call function"))
     }
@@ -44,10 +46,6 @@ impl wasmtime::Callable for CallRoute {
 
         Ok(())
     }
-}
-
-struct Server {
-    modules: HashMap<String, Module>,
 }
 
 struct Module {
@@ -115,26 +113,20 @@ fn main() {
 }
 
 fn create_server(binaries: &[(&str, &str)], servers: &Servers) -> Server {
-    Server {
-        modules: binaries
-            .into_iter()
-            .map(|(name, path)| {
-                let bin = read(path).unwrap();
-                let store = Store::default();
-                let module = WasmModule::new(&store, &bin).expect("wasm module");
+    binaries
+        .into_iter()
+        .map(|(name, path)| {
+            let bin = read(path).unwrap();
+            let store = Store::default();
+            let module = WasmModule::new(&store, &bin).expect("wasm module");
 
-                (name.to_string(), Module {
-                    instance: Instance::new(
-                        &store,
-                        &module,
-                        &map_imports(module.imports(), servers),
-                    )
+            (name.to_string(), Module {
+                instance: Instance::new(&store, &module, &map_imports(module.imports(), servers))
                     .unwrap(),
-                    exports: map_exports(module.exports()).collect(),
-                })
+                exports: map_exports(module.exports()).collect(),
             })
-            .collect(),
-    }
+        })
+        .collect()
 }
 
 fn map_imports(imports: &[ImportType], servers: &Servers) -> Vec<Extern> {
