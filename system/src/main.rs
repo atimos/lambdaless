@@ -3,7 +3,10 @@ use std::{
     fs::read,
     sync::{Arc, RwLock},
 };
-use wasmtime::{Module as WasmModule, *};
+use wasmtime::{
+    ExportType, Extern, ExternType, HostRef, ImportType, Instance, Module as WasmModule, Store,
+    Trap, Val,
+};
 
 type Server = HashMap<String, Module>;
 
