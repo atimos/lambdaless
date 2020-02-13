@@ -29,15 +29,15 @@ impl Servers {
 }
 
 struct CallRoute {
-    name: String,
-    func: String,
+    module: String,
+    function: String,
     servers: Servers,
 }
 
 impl wasmtime::Callable for CallRoute {
     fn call(&self, params: &[Val], results: &mut [Val]) -> Result<(), Trap> {
-        println!("Calling {}::{}", self.name, self.func);
-        let result = self.servers.run(&self.name, &self.func, params)?;
+        println!("Calling {}::{}", self.module, self.function);
+        let result = self.servers.run(&self.module, &self.function, params)?;
 
         for (idx, result) in result.into_iter().enumerate() {
             results[idx] = result.clone();
@@ -53,9 +53,9 @@ struct Module {
 }
 
 impl Module {
-    fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, Trap> {
+    fn run(&self, function: &str, args: &[Val]) -> Result<Box<[Val]>, Trap> {
         self.exports
-            .get(func)
+            .get(function)
             .and_then(|idx| self.instance.exports().get(*idx))
             .ok_or_else(|| Trap::new("entry not found"))?
             .func()
@@ -134,8 +134,8 @@ fn map_imports(imports: &[ImportType], servers: &Servers) -> Vec<Extern> {
         .filter_map(|import| {
             let route = CallRoute {
                 servers: servers.clone(),
-                name: import.module().into(),
-                func: import.name().into(),
+                module: import.module().into(),
+                function: import.name().into(),
             };
             match import.ty() {
                 ExternType::Func(func) => Some(Extern::Func(HostRef::new(wasmtime::Func::new(
