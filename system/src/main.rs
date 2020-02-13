@@ -88,10 +88,10 @@ fn main() {
     servers.write().unwrap().append(&mut vec![server1, server2]);
 
     dbg!(servers.read().unwrap()[0]
-        .run("https://repository.timot.se/test2", "return_arg", &[111.into()]));
+        .run("https://repository.timot.se/test2", "return_arg", &[111.into()]).unwrap());
 
     dbg!(servers.read().unwrap()[1]
-        .run("https://repository.timot.se/test2", "return_arg", &[222.into()]));
+        .run("https://repository.timot.se/test2", "return_arg", &[222.into()]).unwrap());
 }
 
 fn create_server(binaries: &[(&str, &str)], servers: Servers) -> Server {
