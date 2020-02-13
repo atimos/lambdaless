@@ -5,7 +5,30 @@ use std::{
 };
 use wasmtime::{Module as WasmModule, *};
 
-type Servers = Arc<RwLock<Vec<Server>>>;
+// type Servers = Arc<RwLock<Vec<Server>>>;
+
+#[derive(Clone, Default)]
+struct Servers {
+    list: Arc<RwLock<Vec<Server>>>,
+}
+
+impl Servers {
+    fn add(&self, server: Server) -> Result<(), ()> {
+        self.list.write().map(|mut list| list.push(server)).map_err(|_| ())
+    }
+
+    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, String> {
+        self.list
+            .read()
+            .map_err(|_| String::from("Could not read rwlock"))?
+            .iter()
+            .find_map(|server| server.modules.get(module))
+            .ok_or_else(|| String::from("No server found with module loaded"))
+            .and_then(|module| {
+                module.run(function, params).map_err(|_| String::from("Could not call function"))
+            })
+    }
+}
 
 struct CallRoute {
     name: String,
@@ -15,14 +38,9 @@ struct CallRoute {
 
 impl wasmtime::Callable for CallRoute {
     fn call(&self, params: &[Val], results: &mut [Val]) -> Result<(), Trap> {
-        let result = self
-            .servers
-            .read()
-            .map_err(|_| Trap::new("Could not read rwlock"))?
-            .iter()
-            .find_map(|server| server.modules.get(&self.name))
-            .ok_or_else(|| Trap::new("No server found with module loaded"))
-            .and_then(|module| module.run(&self.func, params).map_err(|err| Trap::new(err)))?;
+        println!("Calling {}::{}", self.name, self.func);
+        let result =
+            self.servers.run(&self.name, &self.func, params).map_err(|err| Trap::new(err))?;
 
         for (idx, result) in result.into_iter().enumerate() {
             results[idx] = result.clone();
@@ -34,12 +52,6 @@ impl wasmtime::Callable for CallRoute {
 
 struct Server {
     modules: HashMap<String, Module>,
-}
-
-impl Server {
-    fn run(&self, name: &str, func: &str, args: &[Val]) -> Result<Box<[Val]>, String> {
-        self.modules.get(name).unwrap().run(func, args)
-    }
 }
 
 struct Module {
@@ -61,46 +73,49 @@ impl Module {
 }
 
 fn main() {
-    let servers = Arc::new(RwLock::new(Vec::new()));
+    let servers = Servers::default();
 
-    let server1 = create_server(
-        &[
-            (
+    servers
+        .add(create_server(
+            &[(
                 "https://repository.timot.se/test1",
                 "./target/wasm32-unknown-unknown/release/test1.wasm",
-            ),
-            (
+            )],
+            &servers,
+        ))
+        .unwrap();
+
+    servers
+        .add(create_server(
+            &[(
                 "https://repository.timot.se/test2",
                 "./target/wasm32-unknown-unknown/release/test2.wasm",
-            ),
-        ],
-        &servers,
+            )],
+            &servers,
+        ))
+        .unwrap();
+
+    servers
+        .add(create_server(&[("https://repository.timot.se/test3", "./test3/main.wasm")], &servers))
+        .unwrap();
+
+    println!("Running https://repository.timot.se/test1::return_double_arg");
+    println!(
+        "{:?}",
+        servers
+            .run("https://repository.timot.se/test1", "return_double_arg", &[111.into()])
+            .unwrap()
     );
-
-    let server2 = create_server(
-        &[
-            (
-                "https://repository.timot.se/test2",
-                "./target/wasm32-unknown-unknown/release/test2.wasm",
-            ),
-            ("https://repository.timot.se/test3", "./test3/main.wasm"),
-        ],
-        &servers,
+    println!("\nRunning https://repository.timot.se/test2::return_arg");
+    println!(
+        "{:?}",
+        servers.run("https://repository.timot.se/test2", "return_arg", &[222.into()]).unwrap()
     );
-
-    servers.write().unwrap().append(&mut vec![server1, server2]);
-
-    dbg!(servers.read().unwrap()[0]
-        .run("https://repository.timot.se/test2", "return_arg", &[111.into()])
-        .unwrap());
-
-    dbg!(servers.read().unwrap()[1]
-        .run("https://repository.timot.se/test2", "return_arg", &[222.into()])
-        .unwrap());
-
-    dbg!(servers.read().unwrap()[1]
-        .run("https://repository.timot.se/test3", "return_arg", &[333.into()])
-        .unwrap());
+    println!("\nRunning https://repository.timot.se/test3::return_arg");
+    println!(
+        "{:?}",
+        servers.run("https://repository.timot.se/test3", "return_arg", &[333.into()]).unwrap()
+    );
 }
 
 fn create_server(binaries: &[(&str, &str)], servers: &Servers) -> Server {
