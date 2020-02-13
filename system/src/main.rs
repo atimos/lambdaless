@@ -54,9 +54,9 @@ struct Module {
 
 impl Module {
     fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, Trap> {
-        self.instance
-            .exports()
-            .get(*self.exports.get(func).ok_or_else(|| Trap::new("index not found"))?)
+        self.exports
+            .get(func)
+            .and_then(|idx| self.instance.exports().get(*idx))
             .ok_or_else(|| Trap::new("entry not found"))?
             .func()
             .ok_or_else(|| Trap::new("Item is not a function"))?
