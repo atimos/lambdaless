@@ -5,8 +5,6 @@ use std::{
 };
 use wasmtime::{Module as WasmModule, *};
 
-// type Servers = Arc<RwLock<Vec<Server>>>;
-
 #[derive(Clone, Default)]
 struct Servers {
     list: Arc<RwLock<Vec<Server>>>,
