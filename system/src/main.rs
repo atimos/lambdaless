@@ -15,15 +15,15 @@ impl Servers {
         self.list.write().map(|mut list| list.push(server)).map_err(|_| ())
     }
 
-    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, String> {
+    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, &'static str> {
         self.list
             .read()
-            .map_err(|_| String::from("Could not read rwlock"))?
+            .map_err(|_| "Could not read rwlock")?
             .iter()
             .find_map(|server| server.modules.get(module))
-            .ok_or_else(|| String::from("No server found with module loaded"))
+            .ok_or("No server found with module loaded")
             .and_then(|module| {
-                module.run(function, params).map_err(|_| String::from("Could not call function"))
+                module.run(function, params).map_err(|_| "Could not call function")
             })
     }
 }
