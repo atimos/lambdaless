@@ -17,13 +17,13 @@ impl Servers {
         self.list.write().map(|mut list| list.push(server)).map_err(|_| ())
     }
 
-    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, &str> {
+    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, Trap> {
         self.list
             .read()
-            .map_err(|_| "Could not read rwlock")?
+            .map_err(|_| Trap::new("Could not read rwlock"))?
             .iter()
             .find_map(|server| server.get(module))
-            .ok_or("No server found with module loaded")
+            .ok_or_else(|| Trap::new("No server found with module loaded"))
             .and_then(|module| module.run(function, params))
     }
 }
@@ -37,8 +37,7 @@ struct CallRoute {
 impl wasmtime::Callable for CallRoute {
     fn call(&self, params: &[Val], results: &mut [Val]) -> Result<(), Trap> {
         println!("Calling {}::{}", self.name, self.func);
-        let result =
-            self.servers.run(&self.name, &self.func, params).map_err(|err| Trap::new(err))?;
+        let result = self.servers.run(&self.name, &self.func, params)?;
 
         for (idx, result) in result.into_iter().enumerate() {
             results[idx] = result.clone();
@@ -54,15 +53,14 @@ struct Module {
 }
 
 impl Module {
-    fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, &'static str> {
+    fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, Trap> {
         self.instance
             .exports()
-            .get(*self.exports.get(func).ok_or("index not found")?)
-            .ok_or("entry not found")
-            .and_then(|func| func.func().ok_or("Item is not a function"))?
+            .get(*self.exports.get(func).ok_or_else(|| Trap::new("index not found"))?)
+            .ok_or_else(|| Trap::new("entry not found"))
+            .and_then(|func| func.func().ok_or_else(|| Trap::new("Item is not a function")))?
             .borrow()
             .call(args)
-            .map_err(|_| "Could not call function")
     }
 }
 
