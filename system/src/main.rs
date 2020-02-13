@@ -15,7 +15,7 @@ impl Servers {
         self.list.write().map(|mut list| list.push(server)).map_err(|_| ())
     }
 
-    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, &'static str> {
+    fn run(&self, module: &str, function: &str, params: &[Val]) -> Result<Box<[Val]>, &str> {
         self.list
             .read()
             .map_err(|_| "Could not read rwlock")?
