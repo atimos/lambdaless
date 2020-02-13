@@ -23,8 +23,8 @@ impl Servers {
             .map_err(|_| Trap::new("Could not read rwlock"))?
             .iter()
             .find_map(|server| server.get(module))
-            .ok_or_else(|| Trap::new("No server found with module loaded"))
-            .and_then(|module| module.run(function, params))
+            .ok_or_else(|| Trap::new("No server found with module loaded"))?
+            .run(function, params)
     }
 }
 
@@ -57,8 +57,9 @@ impl Module {
         self.instance
             .exports()
             .get(*self.exports.get(func).ok_or_else(|| Trap::new("index not found"))?)
-            .ok_or_else(|| Trap::new("entry not found"))
-            .and_then(|func| func.func().ok_or_else(|| Trap::new("Item is not a function")))?
+            .ok_or_else(|| Trap::new("entry not found"))?
+            .func()
+            .ok_or_else(|| Trap::new("Item is not a function"))?
             .borrow()
             .call(args)
     }
