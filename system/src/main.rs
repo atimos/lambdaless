@@ -67,31 +67,40 @@ fn main() {
         &[
             (
                 "https://repository.timot.se/test1",
-                "./target/wasm32-unknown-unknown/debug/test1.wasm",
+                "./target/wasm32-unknown-unknown/release/test1.wasm",
             ),
             (
                 "https://repository.timot.se/test2",
-                "./target/wasm32-unknown-unknown/debug/test2.wasm",
+                "./target/wasm32-unknown-unknown/release/test2.wasm",
             ),
         ],
         &servers,
     );
 
     let server2 = create_server(
-        &[(
-            "https://repository.timot.se/test2",
-            "./target/wasm32-unknown-unknown/debug/test2.wasm",
-        )],
+        &[
+            (
+                "https://repository.timot.se/test2",
+                "./target/wasm32-unknown-unknown/release/test2.wasm",
+            ),
+            ("https://repository.timot.se/test3", "./test3/main.wasm"),
+        ],
         &servers,
     );
 
     servers.write().unwrap().append(&mut vec![server1, server2]);
 
     dbg!(servers.read().unwrap()[0]
-        .run("https://repository.timot.se/test2", "return_arg", &[111.into()]).unwrap());
+        .run("https://repository.timot.se/test2", "return_arg", &[111.into()])
+        .unwrap());
 
     dbg!(servers.read().unwrap()[1]
-        .run("https://repository.timot.se/test2", "return_arg", &[222.into()]).unwrap());
+        .run("https://repository.timot.se/test2", "return_arg", &[222.into()])
+        .unwrap());
+
+    dbg!(servers.read().unwrap()[1]
+        .run("https://repository.timot.se/test3", "return_arg", &[333.into()])
+        .unwrap());
 }
 
 fn create_server(binaries: &[(&str, &str)], servers: &Servers) -> Server {
