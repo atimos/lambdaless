@@ -24,7 +24,7 @@ impl Servers {
             .iter()
             .find_map(|server| server.get(module))
             .ok_or("No server found with module loaded")
-            .and_then(|module| module.run(function, params).map_err(|_| "Could not call function"))
+            .and_then(|module| module.run(function, params))
     }
 }
 
@@ -54,15 +54,15 @@ struct Module {
 }
 
 impl Module {
-    fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, String> {
+    fn run(&self, func: &str, args: &[Val]) -> Result<Box<[Val]>, &'static str> {
         self.instance
             .exports()
-            .get(*self.exports.get(func).ok_or_else(|| String::from("index not found"))?)
-            .ok_or_else(|| String::from("entry not found"))
-            .and_then(|func| func.func().ok_or_else(|| String::from("Item is not a function")))?
+            .get(*self.exports.get(func).ok_or("index not found")?)
+            .ok_or("entry not found")
+            .and_then(|func| func.func().ok_or("Item is not a function"))?
             .borrow()
             .call(args)
-            .map_err(|trap| trap.to_string())
+            .map_err(|_| "Could not call function")
     }
 }
 
