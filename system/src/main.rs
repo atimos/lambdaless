@@ -22,9 +22,7 @@ impl Servers {
             .iter()
             .find_map(|server| server.modules.get(module))
             .ok_or("No server found with module loaded")
-            .and_then(|module| {
-                module.run(function, params).map_err(|_| "Could not call function")
-            })
+            .and_then(|module| module.run(function, params).map_err(|_| "Could not call function"))
     }
 }
 
